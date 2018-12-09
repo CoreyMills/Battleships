@@ -1,0 +1,24 @@
+C:\Users\m018585h\Downloads\SimpleServer\Packets\bin\Debug\Packet.dll
+C:\Users\m018585h\Downloads\SimpleServer\Packets\bin\Debug\Packet.pdb
+C:\Users\m018585h\Downloads\SimpleServer\Packets\obj\Debug\Packets.csprojAssemblyReference.cache
+C:\Users\m018585h\Downloads\SimpleServer\Packets\obj\Debug\Packets.csproj.CoreCompileInputs.cache
+C:\Users\m018585h\Downloads\SimpleServer\Packets\obj\Debug\Packet.dll
+C:\Users\m018585h\Downloads\SimpleServer\Packets\obj\Debug\Packet.pdb
+D:\Visual Studio\CNA\SimpleServer\Packets\bin\Debug\Packet.dll
+D:\Visual Studio\CNA\SimpleServer\Packets\bin\Debug\Packet.pdb
+D:\Visual Studio\CNA\SimpleServer\Packets\obj\Debug\Packets.csprojAssemblyReference.cache
+D:\Visual Studio\CNA\SimpleServer\Packets\obj\Debug\Packets.csproj.CoreCompileInputs.cache
+D:\Visual Studio\CNA\SimpleServer\Packets\obj\Debug\Packet.dll
+D:\Visual Studio\CNA\SimpleServer\Packets\obj\Debug\Packet.pdb
+D:\Visual Studio\CNA\SimpleServer_BattleShips\Packets\bin\Debug\Packet.dll
+D:\Visual Studio\CNA\SimpleServer_BattleShips\Packets\bin\Debug\Packet.pdb
+D:\Visual Studio\CNA\SimpleServer_BattleShips\Packets\obj\Debug\Packets.csprojAssemblyReference.cache
+D:\Visual Studio\CNA\SimpleServer_BattleShips\Packets\obj\Debug\Packets.csproj.CoreCompileInputs.cache
+D:\Visual Studio\CNA\SimpleServer_BattleShips\Packets\obj\Debug\Packet.dll
+D:\Visual Studio\CNA\SimpleServer_BattleShips\Packets\obj\Debug\Packet.pdb
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\bin\Debug\Packet.dll
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\bin\Debug\Packet.pdb
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\obj\Debug\Packets.csprojAssemblyReference.cache
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\obj\Debug\Packets.csproj.CoreCompileInputs.cache
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\obj\Debug\Packet.dll
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\obj\Debug\Packet.pdb

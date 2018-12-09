@@ -1,0 +1,14 @@
+D:\Visual Studio\CNA\SimpleServer\SimpleClient\bin\Debug\SimpleClient.exe.config
+D:\Visual Studio\CNA\SimpleServer\SimpleClient\bin\Debug\SimpleClient.exe
+D:\Visual Studio\CNA\SimpleServer\SimpleClient\bin\Debug\SimpleClient.pdb
+D:\Visual Studio\CNA\SimpleServer\SimpleClient\obj\Debug\SimpleClient.csprojAssemblyReference.cache
+D:\Visual Studio\CNA\SimpleServer\SimpleClient\obj\Debug\SimpleClient.csproj.CoreCompileInputs.cache
+D:\Visual Studio\CNA\SimpleServer\SimpleClient\obj\Debug\SimpleClient.exe
+D:\Visual Studio\CNA\SimpleServer\SimpleClient\obj\Debug\SimpleClient.pdb
+C:\Users\m018585h\Downloads\SimpleServer\SimpleClient\bin\Debug\SimpleClient.exe.config
+C:\Users\m018585h\Downloads\SimpleServer\SimpleClient\bin\Debug\SimpleClient.exe
+C:\Users\m018585h\Downloads\SimpleServer\SimpleClient\bin\Debug\SimpleClient.pdb
+C:\Users\m018585h\Downloads\SimpleServer\SimpleClient\obj\Debug\SimpleClient.csprojAssemblyReference.cache
+C:\Users\m018585h\Downloads\SimpleServer\SimpleClient\obj\Debug\SimpleClient.csproj.CoreCompileInputs.cache
+C:\Users\m018585h\Downloads\SimpleServer\SimpleClient\obj\Debug\SimpleClient.exe
+C:\Users\m018585h\Downloads\SimpleServer\SimpleClient\obj\Debug\SimpleClient.pdb

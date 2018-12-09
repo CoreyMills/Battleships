@@ -1,0 +1,62 @@
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\bin\Debug\ChatClient.exe.config
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\bin\Debug\ChatClient.exe
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\bin\Debug\ChatClient.pdb
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\obj\Debug\ChatClient.csprojAssemblyReference.cache
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\obj\Debug\ChatClient.Form1.resources
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\obj\Debug\ChatClient.Properties.Resources.resources
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\obj\Debug\ChatClient.csproj.GenerateResource.cache
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\obj\Debug\ChatClient.csproj.CoreCompileInputs.cache
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\obj\Debug\ChatClient.exe
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\obj\Debug\ChatClient.pdb
+G:\Uni\CNA\SimpleServer\ChatClient\bin\Debug\ChatClient.exe.config
+G:\Uni\CNA\SimpleServer\ChatClient\bin\Debug\ChatClient.exe
+G:\Uni\CNA\SimpleServer\ChatClient\bin\Debug\ChatClient.pdb
+G:\Uni\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.csprojAssemblyReference.cache
+G:\Uni\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.Form1.resources
+G:\Uni\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.Properties.Resources.resources
+G:\Uni\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.csproj.GenerateResource.cache
+G:\Uni\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.csproj.CoreCompileInputs.cache
+G:\Uni\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.exe
+G:\Uni\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.pdb
+D:\Visual Studio\CNA\SimpleServer\ChatClient\bin\Debug\ChatClient.exe.config
+D:\Visual Studio\CNA\SimpleServer\ChatClient\bin\Debug\ChatClient.exe
+D:\Visual Studio\CNA\SimpleServer\ChatClient\bin\Debug\ChatClient.pdb
+D:\Visual Studio\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.csprojAssemblyReference.cache
+D:\Visual Studio\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.Form1.resources
+D:\Visual Studio\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.Properties.Resources.resources
+D:\Visual Studio\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.csproj.GenerateResource.cache
+D:\Visual Studio\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.csproj.CoreCompileInputs.cache
+D:\Visual Studio\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.exe
+D:\Visual Studio\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.pdb
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\bin\Debug\Packet.dll
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\bin\Debug\Packet.pdb
+C:\Users\m018585h\Downloads\SimpleServer\ChatClient\obj\Debug\ChatClient.csproj.CopyComplete
+D:\Visual Studio\CNA\SimpleServer\ChatClient\bin\Debug\Packet.dll
+D:\Visual Studio\CNA\SimpleServer\ChatClient\bin\Debug\Packet.pdb
+D:\Visual Studio\CNA\SimpleServer\ChatClient\obj\Debug\ChatClient.csproj.CopyComplete
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\bin\Debug\ChatClient.exe.config
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\bin\Debug\ChatClient.exe
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\bin\Debug\ChatClient.pdb
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\bin\Debug\Packet.dll
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\bin\Debug\Packet.pdb
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.csprojAssemblyReference.cache
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.Properties.Resources.resources
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.csproj.GenerateResource.cache
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.csproj.CoreCompileInputs.cache
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.csproj.CopyComplete
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.exe
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.pdb
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.csprojAssemblyReference.cache
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.Form1.resources
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.Properties.Resources.resources
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.csproj.GenerateResource.cache
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.csproj.CoreCompileInputs.cache
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.exe
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.pdb
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\bin\Debug\ChatClient.exe.config
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\bin\Debug\ChatClient.exe
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\bin\Debug\ChatClient.pdb
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\bin\Debug\Packet.dll
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\bin\Debug\Packet.pdb
+C:\Users\m018585h\Downloads\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.csproj.CopyComplete
+D:\Visual Studio\CNA\SimpleServer_BattleShips\ChatClient\obj\Debug\ChatClient.Form1.resources
