@@ -8,7 +8,9 @@ using System.IO;
 using System.Threading;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.Serialization;
+using System.Media;
 using Packets;
+using System.Security.Permissions;
 
 namespace ChatClient
 {
@@ -37,6 +39,9 @@ namespace ChatClient
         private bool _previousServerMessage = true;
         private bool _resetPanels = true;
 
+        private bool _spectating = false;
+        public bool _challengeAccept;
+
         private List<int> _myShips;
         private int _shipsChosenCount = 0;
         private int _maxShips = 5;
@@ -56,6 +61,8 @@ namespace ChatClient
         private delegate void UpdateGamePanels(Packet packet);
         private delegate void SetName(string name);
         private delegate void FormClose();
+
+        private Thread _challengeThread;
 
         public Form1()
         {
@@ -84,6 +91,8 @@ namespace ChatClient
                 _delNewName = new SetName(UpdateNameTxt);
                 _delClose = new FormClose(CloseForm);
 
+                _challengeThread = new Thread(new ParameterizedThreadStart(ChallengeForm));
+
                 _serverResponse = new Thread(new ThreadStart(TCP_ProcessServerResponse));
                 _serverResponse.Start();
 
@@ -102,7 +111,7 @@ namespace ChatClient
                     int tempIndex = i;
                     enemyPanel.Controls[i].Click += (label, e1) => HandleLabelClick_Enemy(label, e1, tempIndex);
                 }
-
+                
                 ResetPanels();
             }
             else
@@ -132,26 +141,32 @@ namespace ChatClient
             return true;
         }
 
+        [SecurityPermissionAttribute(SecurityAction.Demand, ControlThread = true)]
         public void Disconnect()
         {
-            _udpThread.Abort();
+            _writer.Write(0);
+            _writer.Flush();
+
+            _tcpClient.Dispose();
             _tcpClient.Close();
+            _serverResponse.Abort();
+            _challengeThread.Abort();
+            _udpThread.Abort();
         }
 
         ////////TCP Methods////////
         private void TCP_ProcessServerResponse()
         {
-            while (_tcpClient.Connected)
+            while (_tcpClient.Connected & !_closing)
             {
                 try
                 {
-                    int noOfIncomingBytes = 0;
-                    while ((noOfIncomingBytes = _reader.ReadInt32()) != 0)
+                    int noOfIncomingBytes = 0;  
+                    while ((noOfIncomingBytes = _reader.ReadInt32()) > 0)
                     {
+                        _closing = false;
                         byte[] bytes = _reader.ReadBytes(noOfIncomingBytes);
-
                         MemoryStream memStream = new MemoryStream(bytes);
-
                         Packet packet = _formatter.Deserialize(memStream) as Packet;
 
                         string message = "";
@@ -160,34 +175,61 @@ namespace ChatClient
                             case PacketType.CHAT_MESSAGE:
                                 message = ((ChatMessagePacket)packet).message;
                                 UpdateChatWindow(message, true);
-
                                 if (message.ToLower() == "server " + '\n' + "bye")
                                 {
                                     CloseForm();
                                 }
                                 break;
-                            case PacketType.GAME:
+                            case PacketType.GAME_MESSAGE:
                                 message = ((GameMessagePacket)packet).message;
                                 UpdateChatWindow(message, true);
-
                                 if(message == "GAME " + '\n' + "Now position your battleships")
                                 {
                                     _gameInProgress = true;
                                 }
                                 break;
                             case PacketType.HIT_ATTEMPT:
+                            case PacketType.SPECTATING_HIT:
+                            case PacketType.GAME_DATA:
                                 UpdatePanels(packet);
                                 break;
                             case PacketType.END_GAME:
                                 if (((EndGamePacket)packet).endGame)
                                 {
+                                    if (_spectating)
+                                    {
+                                        _spectating = false;
+                                    }
+
+                                    if(_gameInProgress)
+                                    {
+                                        _gameInProgress = false;
+                                    }
                                     _resetPanels = true;
                                 }
                                 break;
-                            case PacketType.QUIT_GAME:
+                            case PacketType.CHALLENGE:
+                                message = ((ChallengePacket)packet).message;
+                                _challengeThread.Start(message);
+                                break;
+                            case PacketType.SPECTATING:
+                                _resetPanels = true;
+                                ResetPanels();
+
+                                _spectating = true;
+                                string player1 = ((SpectatingPacket)packet).chosenClient;
+                                string player2 = ((SpectatingPacket)packet).clientsOpponent;
+
+                                message = "Spectating" + '\n' + "You are spectating: " + '\n' +
+                                    player1 + " VS " + player2 + '\n' + '\n' +
+                                    "type '&leave' to stop spectating.";
+                                UpdateChatWindow(message, true);
+                                UpdatePanels(packet);
+                                break;
+                            case PacketType.QUIT_ALL:
                                 _closing = true;
-                                CloseForm();
-                                Disconnect();
+                                //Disconnect();
+                                //CloseForm();
                                 break;
                             case PacketType.NICKNAME:
                                 UpdateNameTxt(((NicknamePacket)packet).nickname);
@@ -195,35 +237,49 @@ namespace ChatClient
                         }
                     }
                 }
-                catch
+                catch (EndOfStreamException e)
                 {
-                    if(!_closing)
+                    Console.WriteLine("Error writing data: {0}.", e.GetType().Name);
+                }
+                catch (ThreadAbortException e)
+                {
+                    Console.WriteLine("Error writing data: {0}.", e.GetType().Name);
+                }
+                catch(Exception e)
+                {
+                    if (!_closing)
                     {
-                        Disconnect();
                         UpdateChatWindow("ERROR: " + '\n' + "You have been disconnected." +
                             '\n' + "Restart the program and try again :D", false);
+                        _closing = true;
                     }
                 }
             }
+            Disconnect();
+            CloseForm();
         }
 
         private void TCP_Send(Packet packet)
         {
-            using (MemoryStream memStream = new MemoryStream(255))
+            if (_tcpClient.Connected)
             {
-                try
+                using (MemoryStream memStream = new MemoryStream(255))
                 {
-                    _formatter.Serialize(memStream, packet);
+                    try
+                    {
 
-                    Byte[] buffer = memStream.GetBuffer();
+                        _formatter.Serialize(memStream, packet);
 
-                    _writer.Write(buffer.Length);
-                    _writer.Write(buffer);
-                }
-                catch (SerializationException e)
-                {
-                    Console.WriteLine("Failed to serialize. Reason: " + e.Message);
-                    throw;
+                        Byte[] buffer = memStream.GetBuffer();
+
+                        _writer.Write(buffer.Length);
+                        _writer.Write(buffer);
+                    }
+                    catch (SerializationException e)
+                    {
+                        Console.WriteLine("Failed to serialize. Reason: " + e.Message);
+                        throw;
+                    }
                 }
             }
         }
@@ -263,8 +319,26 @@ namespace ChatClient
             }
         }
 
-        ////////Form Methods////////
+        ////////Challenge Form Methods////////
+        private void ChallengeForm(object message)
+        {
+            string returnMessage = (string)message;
+            string[] subStrings = returnMessage.Split('\n');
+            returnMessage = subStrings[subStrings.Length - 1];
 
+            ChallengeForm challengeForm = new ChallengeForm(this);
+            challengeForm.challengeMessage = returnMessage.Trim();
+            Application.Run(challengeForm);
+        
+            subStrings = subStrings[subStrings.Length - 1].Split(':');
+
+            AcceptChallengePacket packet = new AcceptChallengePacket(_challengeAccept, subStrings[0]);
+            TCP_Send(packet);
+        
+            Console.WriteLine(_challengeAccept.ToString());
+        }
+
+        ////////Form Methods////////
         private TimeSpan GetDeltaTime()
         {
             TimeSpan deltaTime = DateTime.Now - _timeStart;
@@ -355,67 +429,179 @@ namespace ChatClient
             }
             else
             {
-                if (_resetPanels)
+                if (_spectating)
                 {
-                    _resetPanels = false;
-                    AccessibleRole accessibleRole1 = AccessibleRole.ColumnHeader;
-                    AccessibleRole accessibleRole2 = AccessibleRole.RowHeader;
-
-                    for (int i = 0; i < enemyPanel.Controls.Count; i++)
+                    switch (packet.packetType)
                     {
-                        if (accessibleRole1 != enemyPanel.Controls[i].AccessibleRole &&
-                        accessibleRole2 != enemyPanel.Controls[i].AccessibleRole)
-                        {
-                            enemyPanel.Controls[i].Text = "?";
-                            enemyPanel.Controls[i].BackColor = Color.GreenYellow;
-                            enemyPanel.Controls[i].BackgroundImage = null;
-                        }
-                    }
+                        case PacketType.SPECTATING:
+                            string player1 = ((SpectatingPacket)packet).chosenClient;
+                            string player2 = ((SpectatingPacket)packet).clientsOpponent;
+                            textBox1.Text = player1;
+                            textBox2.Text = player2;
 
-                    for (int i = 0; i < friendPanel.Controls.Count; i++)
-                    {
-                        if (accessibleRole1 != friendPanel.Controls[i].AccessibleRole &&
-                        accessibleRole2 != friendPanel.Controls[i].AccessibleRole)
-                        {
-                            friendPanel.Controls[i].BackColor = Color.DeepSkyBlue;
-                            friendPanel.Controls[i].BackgroundImage = _noShipI;
-                        }
+                            AccessibleRole accessibleRole1 = AccessibleRole.ColumnHeader;
+                            AccessibleRole accessibleRole2 = AccessibleRole.RowHeader;
+                            for (int i = 0; i < enemyPanel.Controls.Count; i++)
+                            {
+                                if (accessibleRole1 != enemyPanel.Controls[i].AccessibleRole &&
+                                accessibleRole2 != enemyPanel.Controls[i].AccessibleRole)
+                                {
+                                    enemyPanel.Controls[i].Text = "";
+                                    enemyPanel.Controls[i].BackColor = Color.GreenYellow;
+                                    enemyPanel.Controls[i].BackgroundImage = _noShipI;
+                                }
+                            }
+                            break;
+                        case PacketType.GAME_DATA:
+                            List<int> temp;
+                            if ((temp = ((GameDataPacket )packet).p1Ships) != null)
+                            {
+                                for (int i = 0; i < temp.Count; i++)
+                                {
+                                    friendPanel.Controls[temp[i]].Text = "";
+                                    friendPanel.Controls[temp[i]].BackColor = Color.White;
+                                    friendPanel.Controls[temp[i]].BackgroundImage = _safeShipI;
+                                }
+                            }
+                            if ((temp = ((GameDataPacket )packet).p2Ships) != null)
+                            {
+                                for (int i = 0; i < temp.Count; i++)
+                                {
+                                    enemyPanel.Controls[temp[i]].Text = "";
+                                    enemyPanel.Controls[temp[i]].BackColor = Color.White;
+                                    enemyPanel.Controls[temp[i]].BackgroundImage = _safeShipI;
+                                }
+                            }
+                            if ((temp = ((GameDataPacket )packet).p1DeadShips) != null)
+                            {
+                                for (int i = 0; i < temp.Count; i++)
+                                {
+                                    friendPanel.Controls[temp[i]].Text = "";
+                                    friendPanel.Controls[temp[i]].BackColor = Color.Red;
+                                    friendPanel.Controls[temp[i]].BackgroundImage = _hitShipI1;
+                                }
+                            }
+                            if ((temp = ((GameDataPacket )packet).p2DeadShips) != null)
+                            {
+                                for (int i = 0; i < temp.Count; i++)
+                                {
+                                    enemyPanel.Controls[temp[i]].Text = "";
+                                    enemyPanel.Controls[temp[i]].BackColor = Color.Red;
+                                    enemyPanel.Controls[temp[i]].BackgroundImage = _hitShipI1;
+                                }
+                            }
+                            break;
+                        case PacketType.SPECTATING_HIT:
+                            int index = ((SpectatorHitPacket)packet).index;
+                            bool hit = ((SpectatorHitPacket)packet).hit;
+                            bool p1Turn = ((SpectatorHitPacket)packet).player1Turn;
+
+                            if (p1Turn)
+                            {
+                                if (hit)
+                                {
+                                    friendPanel.Controls[index].Text = "";
+                                    friendPanel.Controls[index].BackColor = Color.Red;
+                                    friendPanel.Controls[index].BackgroundImage = _hitShipI1;
+                                }
+                                else
+                                {
+                                    friendPanel.Controls[index].Text = "";
+                                    friendPanel.Controls[index].BackColor = Color.White;
+                                    friendPanel.Controls[index].BackgroundImage = _noShipI;
+                                }
+                            }
+                            else
+                            {
+                                if (hit)
+                                {
+                                    enemyPanel.Controls[index].Text = "";
+                                    enemyPanel.Controls[index].BackColor = Color.Red;
+                                    enemyPanel.Controls[index].BackgroundImage = _hitShipI1;
+                                }
+                                else
+                                {
+                                    enemyPanel.Controls[index].Text = "";
+                                    enemyPanel.Controls[index].BackColor = Color.White;
+                                    enemyPanel.Controls[index].BackgroundImage = _noShipI;
+                                }
+                            }
+                            break;
                     }
                 }
                 else
                 {
-                    int index = ((HitAttemptPacket)packet).index;
-                    bool hit = ((HitAttemptPacket)packet).hit;
-                    bool myTurn = ((HitAttemptPacket)packet).myTurn;
-
-                    if (myTurn)
+                    if (_resetPanels)
                     {
-                        if (hit)
+                        _resetPanels = false;
+                        AccessibleRole accessibleRole1 = AccessibleRole.ColumnHeader;
+                        AccessibleRole accessibleRole2 = AccessibleRole.RowHeader;
+
+                        textBox1.Text = "Friendly Battleships";
+                        textBox2.Text = "Enemy Battleships";
+
+                        for (int i = 0; i < enemyPanel.Controls.Count; i++)
                         {
-                            enemyPanel.Controls[index].Text = "";
-                            enemyPanel.Controls[index].BackColor = Color.Red;
-                            enemyPanel.Controls[index].BackgroundImage = _hitShipI1;
+                            if (accessibleRole1 != enemyPanel.Controls[i].AccessibleRole &&
+                            accessibleRole2 != enemyPanel.Controls[i].AccessibleRole)
+                            {
+                                enemyPanel.Controls[i].Text = "?";
+                                enemyPanel.Controls[i].BackColor = Color.GreenYellow;
+                                enemyPanel.Controls[i].BackgroundImage = null;
+                            }
                         }
-                        else
+
+                        for (int i = 0; i < friendPanel.Controls.Count; i++)
                         {
-                            enemyPanel.Controls[index].Text = "";
-                            enemyPanel.Controls[index].BackColor = Color.White;
-                            enemyPanel.Controls[index].BackgroundImage = _noShipI;
+                            if (accessibleRole1 != friendPanel.Controls[i].AccessibleRole &&
+                            accessibleRole2 != friendPanel.Controls[i].AccessibleRole)
+                            {
+                                friendPanel.Controls[i].BackColor = Color.DeepSkyBlue;
+                                friendPanel.Controls[i].BackgroundImage = _noShipI;
+                            }
                         }
                     }
                     else
                     {
-                        if (hit)
+                        int index = ((HitAttemptPacket)packet).index;
+                        bool hit = ((HitAttemptPacket)packet).hit;
+                        bool myTurn = ((HitAttemptPacket)packet).myTurn;
+
+                        SoundPlayer explosionSound = new SoundPlayer("../../SoundEffects/Explosion.wav");
+
+                        if (myTurn)
                         {
-                            friendPanel.Controls[index].Text = "";
-                            friendPanel.Controls[index].BackColor = Color.Red;
-                            friendPanel.Controls[index].BackgroundImage = _hitShipI1;
+                            if (hit)
+                            {
+                                enemyPanel.Controls[index].Text = "";
+                                enemyPanel.Controls[index].BackColor = Color.Red;
+                                enemyPanel.Controls[index].BackgroundImage = _hitShipI1;
+
+                                explosionSound.Play();
+                            }
+                            else
+                            {
+                                enemyPanel.Controls[index].Text = "";
+                                enemyPanel.Controls[index].BackColor = Color.White;
+                                enemyPanel.Controls[index].BackgroundImage = _noShipI;
+                            }
                         }
                         else
                         {
-                            friendPanel.Controls[index].Text = "";
-                            friendPanel.Controls[index].BackColor = Color.White;
-                            friendPanel.Controls[index].BackgroundImage = _noShipI;
+                            if (hit)
+                            {
+                                friendPanel.Controls[index].Text = "";
+                                friendPanel.Controls[index].BackColor = Color.Red;
+                                friendPanel.Controls[index].BackgroundImage = _hitShipI1;
+
+                                explosionSound.Play();
+                            }
+                            else
+                            {
+                                friendPanel.Controls[index].Text = "";
+                                friendPanel.Controls[index].BackColor = Color.White;
+                                friendPanel.Controls[index].BackgroundImage = _noShipI;
+                            }
                         }
                     }
                 }
@@ -441,7 +627,83 @@ namespace ChatClient
 
             if (clientText.TrimEnd().ToCharArray().Length != 0)
             {
-                if (clientText.Contains(":"))
+                if(clientText.Contains("*"))
+                {
+                    if (_gameInProgress)
+                    {
+                        string message = "GAME " + '\n' + "You are currently in a game!";
+                        UpdateChatWindow(message, false);
+                    }
+                    else if(_spectating)
+                    {
+                        string message = "GAME " + '\n' + "You are currently spectating a game!";
+                        UpdateChatWindow(message, false);
+                    }
+                    else
+                    {
+                        string[] subStrings = clientText.Split('*');
+
+                        clientText = subStrings[1];
+                        string chosenOpponent = subStrings[0];
+
+                        ChallengePacket packet = new ChallengePacket(chosenOpponent, clientText);
+                        TCP_Send(packet);
+
+                        string message = "Challenge" + '\n' + "You: " + chosenOpponent + "*" + clientText;
+                        UpdateChatWindow(message, false);
+                    }
+                }
+                else if(clientText.Contains("&"))
+                {
+                    if (_gameInProgress)
+                    {
+                        string message = "GAME " + '\n' + "You are currently in a game!";
+                        UpdateChatWindow(message, false);
+                    }
+                    else
+                    {
+                        string[] subStrings = clientText.Split('&');
+                        string chosenClient = subStrings[1];
+
+                        if (_spectating)
+                        {
+                            if (chosenClient.Trim().ToLower() == "leave")
+                            {
+                                SpectatingPacket packet = new SpectatingPacket(false, null, null);
+                                TCP_Send(packet);
+
+                                string message = "Spectating" + '\n' + "You: " + "&" + chosenClient;
+                                UpdateChatWindow(message, false);
+
+                                _spectating = false;
+                                _resetPanels = true;
+                                ResetPanels();
+                            }
+                            else
+                            {
+                                string message = "Spectating " + '\n' + "You are currently spectating a game!";
+                                UpdateChatWindow(message, false);
+                            }
+                        }
+                        else
+                        {
+                            if (chosenClient.Trim().ToLower() == "leave")
+                            {
+                                string message = "Spectating " + '\n' + "You aren't currently spectating a game!";
+                                UpdateChatWindow(message, false);
+                            }
+                            else
+                            {
+                                SpectatingPacket packet = new SpectatingPacket(true, chosenClient, null);
+                                TCP_Send(packet);
+
+                                string message = "Spectating" + '\n' + "You: " + "&" + chosenClient;
+                                UpdateChatWindow(message, false);
+                            }
+                        }
+                    }
+                }
+                else if (clientText.Contains(":"))
                 {
                     string[] subStrings = clientText.Split(':');
 
@@ -507,86 +769,109 @@ namespace ChatClient
 
         private void HandleLabelClick_Friend(object sender, EventArgs e, int index)
         {
-            if (_gameInProgress)
+            if (_spectating)
             {
-                if (_shipsChosenCount < _maxShips && !this._shipsChosen)
-                {
-                    Control instigatorControl = (Control)sender;
-
-                    AccessibleRole accessibleRole1 = AccessibleRole.ColumnHeader;
-                    AccessibleRole accessibleRole2 = AccessibleRole.RowHeader;
-
-                    if (accessibleRole1 != instigatorControl.AccessibleRole &&
-                        accessibleRole2 != instigatorControl.AccessibleRole)
-                    {
-                        bool sameShip = false;
-                        for(int i = 0; i< _myShips.Count; i++)
-                        {
-                            if(index == _myShips[i])
-                            {
-                                sameShip = true;
-                            }
-                        }
-
-                        if (!sameShip)
-                        {
-                            instigatorControl.BackgroundImage = _safeShipI;
-
-                            _myShips.Add(index);
-                            _shipsChosenCount++;
-
-                            UpdateChatWindow("You have " + (_maxShips - _shipsChosenCount).ToString() + " battleships left to position.", false);
-                        }
-                        else
-                        {
-                            UpdateChatWindow("You already have a ship at that position, choose a different position", false);
-                        }
-                    }
-                }
-
-                if (_shipsChosenCount == _maxShips)
-                {
-                    _shipsChosen = true;
-                    ShipsChosenPacket ships = new ShipsChosenPacket(_myShips);
-                    TCP_Send(ships);
-
-                    _myShips.Clear();
-                }
+                string message = "GAME " + '\n' + "You are currently spectating a game";
+                UpdateChatWindow(message, false);
             }
             else
             {
-                UpdateChatWindow("GAME " + '\n' + "You need to be in a game, before you can position your battleships!", false);
+                if (_gameInProgress)
+                {
+                    if (_shipsChosenCount < _maxShips && !this._shipsChosen)
+                    {
+                        Control instigatorControl = (Control)sender;
+
+                        AccessibleRole accessibleRole1 = AccessibleRole.ColumnHeader;
+                        AccessibleRole accessibleRole2 = AccessibleRole.RowHeader;
+
+                        if (accessibleRole1 != instigatorControl.AccessibleRole &&
+                            accessibleRole2 != instigatorControl.AccessibleRole)
+                        {
+                            bool sameShip = false;
+                            for (int i = 0; i < _myShips.Count; i++)
+                            {
+                                if (index == _myShips[i])
+                                {
+                                    sameShip = true;
+                                }
+                            }
+
+                            if (!sameShip)
+                            {
+                                instigatorControl.BackgroundImage = _safeShipI;
+
+                                _myShips.Add(index);
+                                _shipsChosenCount++;
+
+                                UpdateChatWindow("You have " + (_maxShips - _shipsChosenCount).ToString() + " battleships left to position.", false);
+                            }
+                            else
+                            {
+                                UpdateChatWindow("You already have a ship at that position, choose a different position", false);
+                            }
+                        }
+                    }
+
+                    if (_shipsChosenCount == _maxShips)
+                    {
+                        _shipsChosen = true;
+                        ShipsChosenPacket ships = new ShipsChosenPacket(_myShips);
+                        TCP_Send(ships);
+
+                        _myShips.Clear();
+                    }
+                }
+                else
+                {
+                    UpdateChatWindow("GAME " + '\n' + "You need to be in a game, before you can position your battleships!", false);
+                }
             }
         }
 
         private void HandleLabelClick_Enemy(object sender, EventArgs e, int index)
         {
-            Control instigatorControl = (Control)sender;
-            AccessibleRole accessibleRole1 = AccessibleRole.ColumnHeader;
-            AccessibleRole accessibleRole2 = AccessibleRole.RowHeader;
-
-            if (accessibleRole1 != instigatorControl.AccessibleRole &&
-                accessibleRole2 != instigatorControl.AccessibleRole)
+            if (_spectating)
             {
-                HitAttemptPacket packet = new HitAttemptPacket(index, false, true);
-                TCP_Send(packet);
+                string message = "GAME " + '\n' + "You are currently spectating a game";
+                UpdateChatWindow(message, false);
+            }
+            else
+            {
+                Control instigatorControl = (Control)sender;
+                AccessibleRole accessibleRole1 = AccessibleRole.ColumnHeader;
+                AccessibleRole accessibleRole2 = AccessibleRole.RowHeader;
+
+                if (accessibleRole1 != instigatorControl.AccessibleRole &&
+                    accessibleRole2 != instigatorControl.AccessibleRole)
+                {
+                    HitAttemptPacket packet = new HitAttemptPacket(index, false, true);
+                    TCP_Send(packet);
+                }
             }
         }
 
         private void JoinButton_Click(object sender, EventArgs e)
         {
-            JoinGamePacket newGame = new JoinGamePacket(true);
-            TCP_Send(newGame);
-
-            if(_resetPanels)
+            if (_spectating)
             {
-                ResetPanels();
+                string message = "GAME " + '\n' + "You are currently spectating a game";
+                UpdateChatWindow(message, false);
+            }
+            else
+            {
+                JoinGamePacket newGame = new JoinGamePacket(true);
+                TCP_Send(newGame);
+
+                if (_resetPanels)
+                {
+                    ResetPanels();
+                }
             }
         }
 
         private void ResetPanels()
         {
-            _gameInProgress = false;
             _shipsChosenCount = 0;
             _shipsChosen = false;
 
@@ -608,8 +893,13 @@ namespace ChatClient
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            QuitGamePacket quitPacket = new QuitGamePacket(true);
+            QuitAllPacket quitPacket = new QuitAllPacket(true);
             TCP_Send(quitPacket);
+        }
+
+        private void backgroundWorker1_DoWork(object sender, System.ComponentModel.DoWorkEventArgs e)
+        {
+
         }
     }
 }

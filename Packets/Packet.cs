@@ -9,12 +9,17 @@ namespace Packets
         NICKNAME,
         CHAT_MESSAGE,
         DIRECT_MESSAGE,
+        GAME_MESSAGE,
         HIT_ATTEMPT,
         SHIPS,
-        GAME,
+        CHALLENGE,
+        ACCEPT_CHALLENGE,
         JOIN_GAME,
+        SPECTATING,
+        SPECTATING_HIT,
+        GAME_DATA,
         END_GAME,
-        QUIT_GAME,
+        QUIT_ALL,
     }
 
     [Serializable]
@@ -40,7 +45,7 @@ namespace Packets
     {
         public string message;
 
-        public ChatMessagePacket(String message)
+        public ChatMessagePacket(string message)
         {
             packetType = PacketType.CHAT_MESSAGE;
             this.message = message;
@@ -55,7 +60,7 @@ namespace Packets
         //recipient of the message
         public string recipientName;
 
-        public DirectedMessagePacket(String message, string recipientName)
+        public DirectedMessagePacket(string message, string recipientName)
         {
             packetType = PacketType.DIRECT_MESSAGE;
             this.recipientName = recipientName;
@@ -84,12 +89,12 @@ namespace Packets
     [Serializable]
     public class ShipsChosenPacket : Packet
     {
-        public List<int> shipIndicies;
+        public List<int> shipIndices;
 
         public ShipsChosenPacket(List<int> chosenShips)
         {
             packetType = PacketType.SHIPS;
-            shipIndicies = chosenShips;
+            shipIndices = chosenShips;
         }
     }
 
@@ -101,8 +106,91 @@ namespace Packets
 
         public GameMessagePacket(String message)
         {
-            packetType = PacketType.GAME;
+            packetType = PacketType.GAME_MESSAGE;
             this.message = message;
+        }
+    }
+
+    //new
+    [Serializable]
+    public class ChallengePacket : Packet
+    {
+        public string chosenOpponent;
+        public string message;
+
+        public ChallengePacket(string chosenOpponent, string message)
+        {
+            packetType = PacketType.CHALLENGE;
+            this.chosenOpponent = chosenOpponent;
+            this.message = message;
+        }
+    }
+
+    [Serializable]
+    public class AcceptChallengePacket : Packet
+    {
+        public bool accept;
+        public string challenger;
+
+        public AcceptChallengePacket(bool accept, string challenger)
+        {
+            packetType = PacketType.ACCEPT_CHALLENGE;
+            this.accept = accept;
+            this.challenger = challenger;
+        }
+    }
+
+    [Serializable]
+    public class SpectatingPacket : Packet
+    {
+        public bool startSpectating;
+        public string chosenClient;
+        public string clientsOpponent;
+
+        public SpectatingPacket(bool startSpectating, string chosenClient, string clientsOpponent)
+        {
+            packetType = PacketType.SPECTATING;
+            this.startSpectating = startSpectating;
+            this.chosenClient = chosenClient;
+            this.clientsOpponent = clientsOpponent;
+        }
+    }
+
+    [Serializable]
+    public class SpectatorHitPacket : Packet
+    {
+        //public label control index;
+        public int index;
+        public bool hit;
+        public bool player1Turn;
+
+        //cIndex = index of the control, shipHit = was a shipHit, myTurn = was it your clients turn
+        public SpectatorHitPacket(int cIndex, bool shipHit, bool player1Turn)
+        {
+            packetType = PacketType.SPECTATING_HIT;
+            this.index = cIndex;
+            this.hit = shipHit;
+            this.player1Turn = player1Turn;
+        }
+    }
+
+    [Serializable]
+    public class GameDataPacket : Packet
+    {
+        public List<int> p1Ships;
+        public List<int> p2Ships;
+        public List<int> p1DeadShips;
+        public List<int> p2DeadShips;
+
+        public GameDataPacket (List<int> p1Ships, List<int> p2Ships, 
+                        List<int> p1DeadShips, List<int> p2DeadShips)
+        {
+            packetType = PacketType.GAME_DATA;
+
+            this.p1Ships = p1Ships;
+            this.p2Ships = p2Ships;
+            this.p1DeadShips = p1DeadShips;
+            this.p2DeadShips = p2DeadShips;
         }
     }
 
@@ -131,14 +219,14 @@ namespace Packets
     }
 
     [Serializable]
-    public class QuitGamePacket : Packet
+    public class QuitAllPacket : Packet
     {
-        public bool quitGame;
+        public bool quitAll;
 
-        public QuitGamePacket(bool quitGame)
+        public QuitAllPacket(bool quitGame)
         {
-            packetType = PacketType.QUIT_GAME;
-            this.quitGame = quitGame;
+            packetType = PacketType.QUIT_ALL;
+            this.quitAll = quitGame;
         }
     }
 }

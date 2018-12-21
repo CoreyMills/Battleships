@@ -22,11 +22,13 @@ namespace SimpleServer
         public int _gameID { get; set; }
         public int _playerNum { get; set; }
         public bool _myTurn { get; set; }
-   
+
+        public bool _spectating { get; set; }
+
         public bool _closing { get; set; }
 
         public List<int> _myShips { get; set; }
-        public int _shipsHitCount { get; set; }
+        public List<int> _destroyedShips { get; set; }
 
         public Client(Socket socket, int clientID)
         {
@@ -44,7 +46,7 @@ namespace SimpleServer
             _closing = false;
 
             _myShips = new List<int>();
-            _shipsHitCount = 0;
+            _destroyedShips = new List<int>();
         }
 
         public void Send(Packet packet)
@@ -63,14 +65,19 @@ namespace SimpleServer
         public void CleanUp()
         {
             _myShips.Clear();
-            _shipsHitCount = 0;
+            _destroyedShips.Clear();
             _gameID = 0;
             _playerNum = 0;
             _myTurn = false;
+            _spectating = false;
         }
 
         public void Close()
         {
+            _writer.Write(0);
+            _writer.Flush();
+
+            _stream.Close();
             _socket.Close();
         }
     }

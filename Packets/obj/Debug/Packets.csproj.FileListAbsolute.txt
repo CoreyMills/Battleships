@@ -22,3 +22,15 @@ C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\obj\Debug\Packets.c
 C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\obj\Debug\Packets.csproj.CoreCompileInputs.cache
 C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\obj\Debug\Packet.dll
 C:\Users\m018585h\Downloads\SimpleServer_BattleShips\Packets\obj\Debug\Packet.pdb
+G:\Uni\CNA\Battleships\Packets\bin\Debug\Packet.dll
+G:\Uni\CNA\Battleships\Packets\bin\Debug\Packet.pdb
+G:\Uni\CNA\Battleships\Packets\obj\Debug\Packets.csprojAssemblyReference.cache
+G:\Uni\CNA\Battleships\Packets\obj\Debug\Packets.csproj.CoreCompileInputs.cache
+G:\Uni\CNA\Battleships\Packets\obj\Debug\Packet.dll
+G:\Uni\CNA\Battleships\Packets\obj\Debug\Packet.pdb
+D:\Visual Studio\CNA\Battleships\Packets\bin\Debug\Packet.dll
+D:\Visual Studio\CNA\Battleships\Packets\bin\Debug\Packet.pdb
+D:\Visual Studio\CNA\Battleships\Packets\obj\Debug\Packets.csprojAssemblyReference.cache
+D:\Visual Studio\CNA\Battleships\Packets\obj\Debug\Packets.csproj.CoreCompileInputs.cache
+D:\Visual Studio\CNA\Battleships\Packets\obj\Debug\Packet.dll
+D:\Visual Studio\CNA\Battleships\Packets\obj\Debug\Packet.pdb

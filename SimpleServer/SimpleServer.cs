@@ -22,6 +22,7 @@ namespace SimpleServer
         public bool nextPlayersTurn;
         public Client player1;
         public Client player2;
+        public ConcurrentDictionary<int, Client> spectatorList;
 
         public void Init()
         {
@@ -34,6 +35,8 @@ namespace SimpleServer
 
             player1 = null;
             player2 = null;
+
+            spectatorList = new ConcurrentDictionary<int, Client>();
         }
 
         public bool GameFull()
@@ -64,6 +67,15 @@ namespace SimpleServer
             shipsPlaced = false;
             nextPlayersTurn = false;
 
+            if(!spectatorList.IsEmpty)
+            {
+                for (int i = 0; i < spectatorList.Count; i++)
+                {
+                    spectatorList[i].CleanUp();
+                }
+                spectatorList.Clear();
+            }
+
             if (player1 != null)
             {
                 player1.CleanUp();
@@ -87,8 +99,7 @@ namespace SimpleServer
         private IPEndPoint _udpEndPoint;
         private Thread _udpThread;
 
-        private static List<Client> _clientList;
-
+        private static ConcurrentDictionary<int, Client> _clientList;
         private static ConcurrentDictionary<int, Game> _gameList;
 
         Game _nextGame;
@@ -107,14 +118,15 @@ namespace SimpleServer
 
             _formatter = new BinaryFormatter();
 
-            _clientList = new List<Client>();
+            _clientList = new ConcurrentDictionary<int, Client>();
             _gameList = new ConcurrentDictionary<int, Game>();
             
             _nextGame = new Game();
+            _nextGame.Init();
             _nextGameLock = "Lock";
 
             _nextClientID = 0;
-            _nextGameID = 0;
+            _nextGameID = 1;
         }
 
         public void Start()
@@ -125,14 +137,12 @@ namespace SimpleServer
             _udpThread = new Thread(new ThreadStart(UDP_Listen));
             _udpThread.Start();
 
-            _nextGameID = 1;
-
             //checking for connections loop
             do
             {
                 Socket socket = _tcpListener.AcceptSocket();
                 Client client = new Client(socket, _nextClientID);
-                _clientList.Add(client);
+                _clientList.TryAdd(_clientList.Count(), client);
 
                 _nextClientID++;
 
@@ -140,9 +150,7 @@ namespace SimpleServer
 
                 Thread t = new Thread(new ParameterizedThreadStart(ClientMethod));
                 t.Start(client);
-            } while (true); //_clientList.ElementAt(0) != null);
-
-            //Stop();
+            } while (true);
         }
 
         public void Stop()
@@ -171,6 +179,8 @@ namespace SimpleServer
                 }
                 finally
                 {
+                    //not tested
+                    _udpListener.Close();
                 }
             }
         }
@@ -230,56 +240,60 @@ namespace SimpleServer
             finally
             {
                 bool handled = false;
-                if (!_nextGame.GameEmpty())
+                if (!_nextGame.GameEmpty() &&
+                    _nextGame.player1._clientID == client._clientID)
                 {
-                    if (_nextGame.player1._clientID == client._clientID)
-                    {
-                        _nextGame.Cleanup();
-                        handled = true;
-                    }
+                    _nextGame.Cleanup();
+                    _nextGame.Init();
+                    handled = true;
                 }
 
-                if(!handled)
+                int tempI;
+                if (!handled && (tempI = GetGameIndex(client)) != -1)
                 {
-                    int tempI;
-                    if ((tempI = GetGameIndex(client)) != -1)
-                    {
-                        Game thisGame = _gameList[tempI];
+                    Game thisGame = _gameList[tempI];
 
-                        if (thisGame.gameStarted)
+                    if (thisGame.gameStarted)
+                    {
+                        string message = "Game" + '\n' + "Your opponent was disconnected!" +
+                                            '\n' + "You can now join or spectate a new game!";
+                        string specMessage = "Game" + '\n' + client._name + " was disconnected!" +
+                                                    '\n' + "You can now join or spectate a new game!";
+
+                        GameMessagePacket gamePacket = new GameMessagePacket(message);
+                        EndGamePacket endGame = new EndGamePacket(true);
+                        if (client._playerNum == 1)
                         {
-                            string message = "Game Message" + '\n' + "Your opponent was disconnected!" +
-                                                '\n' + "You can now join a new game!";
-                            GameMessagePacket gamePacket = new GameMessagePacket(message);
-                            EndGamePacket endGame = new EndGamePacket(true);
-                            if (client._playerNum == 1)
-                            {
-                                thisGame.player2.Send(gamePacket);
-                                thisGame.player2.Send(endGame);
-                            }
-                            else if (client._playerNum == 2)
-                            {
-                                thisGame.player1.Send(gamePacket);
-                                thisGame.player1.Send(endGame);
-                            }
+                            thisGame.player2.Send(gamePacket);
+                            thisGame.player2.Send(endGame);
+                        }
+                        else if (client._playerNum == 2)
+                        {
+                            thisGame.player1.Send(gamePacket);
+                            thisGame.player1.Send(endGame);
                         }
 
-                        _gameList.TryRemove(tempI, out thisGame);
-                        thisGame.Cleanup();
-                        handled = true;
+                        for (int i = 0; i < thisGame.spectatorList.Count(); i++)
+                        {
+                            gamePacket.message = specMessage;
+                            thisGame.spectatorList[i].Send(gamePacket);
+                            thisGame.spectatorList[i].Send(endGame);
+                        }
                     }
+
+                    thisGame.Cleanup();
+                    _gameList.TryRemove(tempI, out thisGame);
+                    handled = true;
                 }
 
                 //remove client from the servers clientlist
-                for(int i = 0; i < _clientList.Count(); i++)
+                for (int i = 0; i < _clientList.Count(); i++)
                 {
-                    if (client._clientID == _clientList[i]._clientID)
+                    if (client._clientID == _clientList.ElementAt(i).Value._clientID)
                     {
-                        _clientList.RemoveAt(i);
-
-                        QuitGamePacket quitGame = new QuitGamePacket(true);
-                        client.Send(quitGame);
                         client.Close();
+                        _clientList.TryRemove(_clientList.ElementAt(i).Key, out client);
+                        break;
                     }
                 }
             }
@@ -293,7 +307,7 @@ namespace SimpleServer
 
             for (int i = 0; i< _clientList.Count(); i++)
             {
-                Client client = _clientList.ElementAt(i);
+                Client client = _clientList[i];
 
                 switch (packet.packetType)
                 {
@@ -364,7 +378,7 @@ namespace SimpleServer
                                                 if (thisGame.player2._myShips[j] == tempIndex)
                                                 {
                                                     tempHit = true;
-                                                    thisGame.player2._shipsHitCount++;
+                                                    thisGame.player2._destroyedShips.Add(tempIndex);
                                                 }
                                             }
 
@@ -408,7 +422,7 @@ namespace SimpleServer
                                                 if (thisGame.player1._myShips[j] == tempIndex)
                                                 {
                                                     tempHit = true;
-                                                    thisGame.player1._shipsHitCount++;
+                                                    thisGame.player1._destroyedShips.Add(tempIndex);
                                                 }
                                             }
 
@@ -458,6 +472,26 @@ namespace SimpleServer
 
                                         HitAttemptPacket hitPacket = new HitAttemptPacket(tempIndex, tempHit, false);
                                         client.Send(hitPacket);
+
+                                        if (!thisGame.spectatorList.IsEmpty)
+                                        {
+                                            if (thisGame.player1._clientID == client._clientID)
+                                            {
+                                                SpectatorHitPacket specHitPacket = new SpectatorHitPacket(tempIndex, tempHit, true);
+                                                for (int j = 0; j < thisGame.spectatorList.Count; j++)
+                                                {
+                                                    thisGame.spectatorList[j].Send(specHitPacket);
+                                                }
+                                            }
+                                            else if (thisGame.player2._clientID == client._clientID)
+                                            {
+                                                SpectatorHitPacket specHitPacket = new SpectatorHitPacket(tempIndex, tempHit, false);
+                                                for (int j = 0; j < thisGame.spectatorList.Count; j++)
+                                                {
+                                                    thisGame.spectatorList[j].Send(specHitPacket);
+                                                }
+                                            }
+                                        }
                                     }
 
                                     thisGame.nextPlayersTurn = true;
@@ -465,8 +499,9 @@ namespace SimpleServer
                                 //check if the a player has won
                                 if (!thisGame.gameEnded)
                                 {
-                                    if (thisGame.player1._shipsHitCount == thisGame.player1._myShips.Count ||
-                                        thisGame.player2._shipsHitCount == thisGame.player2._myShips.Count && thisGame.player1._myShips.Count > 0 && thisGame.player2._myShips.Count > 0)
+                                    if (thisGame.player1._destroyedShips.Count == thisGame.player1._myShips.Count ||
+                                        thisGame.player2._destroyedShips.Count == thisGame.player2._myShips.Count && 
+                                        thisGame.player1._myShips.Count > 0 && thisGame.player2._myShips.Count > 0)
                                     {
                                         thisGame.gameEnded = true;
                                         UpdateClientsGame(GetGameIndex(authorClient), thisGame);
@@ -486,11 +521,27 @@ namespace SimpleServer
                                 {
                                     thisGame.player1.Send(disconnectPacket);
                                     thisGame.player2.Send(connectPacket);
+
+                                    string specMessage = thisGame.player1._name + " has been disconnected from the game";
+                                    GameMessagePacket specPacket = new GameMessagePacket(specMessage);
+                                    
+                                    for(int j = 0; j < thisGame.spectatorList.Count; j++)
+                                    {
+                                        thisGame.spectatorList[j].Send(specPacket);
+                                    }
                                 }
                                 else if (thisGame.player2 == null)
                                 {
                                     thisGame.player2.Send(disconnectPacket);
                                     thisGame.player1.Send(connectPacket);
+
+                                    string specMessage = thisGame.player2._name + " has been disconnected from the game";
+                                    GameMessagePacket specPacket = new GameMessagePacket(specMessage);
+
+                                    for (int j = 0; j < thisGame.spectatorList.Count; j++)
+                                    {
+                                        thisGame.spectatorList[j].Send(specPacket);
+                                    }
                                 }
 
                                 thisGame.gameEnded = true;
@@ -507,43 +558,57 @@ namespace SimpleServer
 
                             if (!thisGame.shipsPlaced)
                             {
-                                if (thisGame.gameStarted)
+                                if (thisGame.gameID != 0)
                                 {
-                                    if (client._playerNum == 1 && thisGame.player1._myShips.Count == 0 ||
-                                        client._playerNum == 2 && thisGame.player2._myShips.Count == 0)
+                                    if (thisGame.gameStarted)
                                     {
-                                        client._myShips = ((ShipsChosenPacket)packet).shipIndicies;
-                                        thisGame.maxShips = ((ShipsChosenPacket)packet).shipIndicies.Count;
+                                        if (client._playerNum == 1 && thisGame.player1._myShips.Count == 0 ||
+                                            client._playerNum == 2 && thisGame.player2._myShips.Count == 0)
+                                        {
+                                            client._myShips = ((ShipsChosenPacket)packet).shipIndices;
+                                            thisGame.maxShips = ((ShipsChosenPacket)packet).shipIndices.Count;
+                                        }
+
+                                        if (thisGame.player1._myShips.Count == thisGame.maxShips &&
+                                           thisGame.player2._myShips.Count == thisGame.maxShips)
+                                        {
+                                            thisGame.shipsPlaced = true;
+                                            UpdateClientsGame(GetGameIndex(authorClient), thisGame);
+
+                                            GameMessagePacket gamePacket = new GameMessagePacket("");
+
+                                            gamePacket.message = "GAME " + thisGame.gameID.ToString() + '\n' +
+                                                                    "Both players have positioned all their ships" + '\n' +
+                                                                    "It is your turn";
+                                            thisGame.player1.Send(gamePacket);
+
+                                            gamePacket.message = "GAME " + thisGame.gameID.ToString() + '\n' +
+                                                                   "Both players have positioned all their ships" + '\n' +
+                                                                   "It is your opponents turn";
+                                            thisGame.player2.Send(gamePacket);
+
+                                            for(int j = 0; j < thisGame.spectatorList.Count; j++)
+                                            {
+                                                GameDataPacket  gameData = new GameDataPacket (thisGame.player1._myShips, thisGame.player2._myShips, null, null);
+                                                thisGame.spectatorList[j].Send(gameData);
+                                            }
+                                        }
                                     }
-
-                                    if (thisGame.player1._myShips.Count == thisGame.maxShips &&
-                                       thisGame.player2._myShips.Count == thisGame.maxShips)
+                                    else
                                     {
-                                        thisGame.shipsPlaced = true;
-                                        UpdateClientsGame(GetGameIndex(authorClient), thisGame);
-
-                                        GameMessagePacket gamePacket = new GameMessagePacket("");
-
-                                        gamePacket.message = "Game " + thisGame.gameID.ToString() + '\n' +
-                                                                "Both players have positioned all their ships" + '\n' +
-                                                                "It is your turn";
-                                        thisGame.player1.Send(gamePacket);
-
-                                        gamePacket.message = "Game " + thisGame.gameID.ToString() + '\n' +
-                                                               "Both players have positioned all their ships" + '\n' +
-                                                               "It is your opponents turn";
-                                        thisGame.player2.Send(gamePacket);
+                                        GameMessagePacket gamePacket = new GameMessagePacket("GAME " + '\n' + "Waiting for a another player...");
+                                        client.Send(gamePacket);
                                     }
                                 }
                                 else
                                 {
-                                    GameMessagePacket gamePacket = new GameMessagePacket("Game " + '\n' + "Waiting for a another player...");
+                                    GameMessagePacket gamePacket = new GameMessagePacket("GAME " + '\n' + "You need to press the 'Join' button!");
                                     client.Send(gamePacket);
                                 }
                             }
                         }
                         break;
-                    case PacketType.GAME:
+                    case PacketType.GAME_MESSAGE:
                         if ((tempI = GetGameIndex(authorClient)) != -1)
                         {
                             thisGame = _gameList[tempI];
@@ -552,17 +617,135 @@ namespace SimpleServer
                         if (client._gameID == thisGame.gameID 
                             && client._clientID != authorClient._clientID)
                         {
-                            returnMessage = "Game Message" + '\n' + "Opponent: ";
+                            returnMessage = "GAME Message" + '\n' + "Opponent: ";
                             returnMessage += ((GameMessagePacket)packet).message;
 
                             GameMessagePacket gamePacket = new GameMessagePacket(returnMessage);
                             client.Send(gamePacket);
                         }
                         break;
+                    case PacketType.CHALLENGE:
+                        if(authorClient._clientID == client._clientID)
+                        {
+                            string authorMessage;
+                            if (client._name != "" && client._name != null)
+                            {
+                                bool sent = false;
+                                bool inGame = false;
+                                string opponent = ((ChallengePacket)packet).chosenOpponent;
+                                string message = ((ChallengePacket)packet).message;
+
+                                for (int j = 0; j < _clientList.Count(); j++)
+                                {
+                                    if (_clientList[j]._name == opponent)
+                                    {
+                                        if (_clientList[j]._gameID == 0)
+                                        {
+                                            returnMessage = "Challenge " + '\n' + authorClient._name + " has challenged you to a game with the following message." +
+                                                '\n' + authorClient._name + ": " + message;
+
+                                            ChallengePacket challengePacket = new ChallengePacket(authorClient._name, returnMessage);
+                                            _clientList[j].Send(challengePacket);
+                                            sent = true;
+                                        }
+                                        else
+                                        {
+                                            inGame = true;
+                                        }
+                                    }
+                                }
+
+                                if (sent)
+                                {
+                                    authorMessage = "SERVER " + '\n' + "Your challenge was recieved.";
+                                    ChatMessagePacket notifiyPacket = new ChatMessagePacket(authorMessage);
+                                    authorClient.Send(notifiyPacket);
+                                }
+                                else if (!sent)
+                                {
+                                    authorMessage = "SERVER " + '\n' + "There is no challenger by that name. Be careful of caps.";
+                                    ChatMessagePacket notifiyPacket = new ChatMessagePacket(authorMessage);
+                                    authorClient.Send(notifiyPacket);
+                                }
+                                else if (inGame)
+                                {
+                                    authorMessage = "SERVER " + '\n' + "The challenger is already in a game.";
+                                    ChatMessagePacket notifiyPacket = new ChatMessagePacket(authorMessage);
+                                    authorClient.Send(notifiyPacket);
+                                }
+                            }
+                            else
+                            {
+                                authorMessage = "SERVER " + '\n' + "You require a name in order to challenge another player.";
+                                ChatMessagePacket notifiyPacket = new ChatMessagePacket(authorMessage);
+                                authorClient.Send(notifiyPacket);
+                            }
+                        }
+                        break;
+                    case PacketType.ACCEPT_CHALLENGE:
+                        if (authorClient._clientID == client._clientID)
+                        {
+                            string challenger = ((AcceptChallengePacket)packet).challenger;
+                            bool accept = ((AcceptChallengePacket)packet).accept;
+
+                            string authorMessage;
+                            string challengerMessage;
+
+                            Client challengerClient;
+
+                            for (int j = 0; j < _clientList.Count(); j++)
+                            {
+                                if (_clientList[j]._name == challenger)
+                                {
+                                    challengerClient = _clientList[j];
+                                    if (accept)
+                                    {
+                                        authorMessage = "Challenge " + '\n' + "You accepted the challenge.";
+                                        ChatMessagePacket authorPacket = new ChatMessagePacket(authorMessage);
+                                        authorClient.Send(authorPacket);
+
+                                        challengerMessage = "Challenge " + '\n' + "Your challenge was accepted.";
+                                        ChatMessagePacket challengerPacket = new ChatMessagePacket(challengerMessage);
+                                        challengerClient.Send(challengerPacket);
+
+                                        ////////////////////////////////////////////////
+                                        
+                                        Console.WriteLine("makeGame");
+                                        thisGame = NewGame(challengerClient, authorClient);
+
+                                        returnMessage = "GAME " + thisGame.gameID.ToString() + '\n' + "Start Game" + '\n';
+
+                                        returnMessage += thisGame.player1._name;
+                                        returnMessage += " VS ";
+                                        returnMessage += thisGame.player2._name;
+
+                                        GameMessagePacket gamePacket = new GameMessagePacket(returnMessage);
+
+                                        thisGame.player1.Send(gamePacket);
+                                        thisGame.player2.Send(gamePacket);
+
+                                        gamePacket.message = "GAME " + '\n' + "Now position your battleships";
+                                        thisGame.player1.Send(gamePacket);
+                                        thisGame.player2.Send(gamePacket);
+                                    }
+                                    else
+                                    {
+                                        authorMessage = "Challenge " + '\n' + "Your declined the challenge.";
+                                        ChatMessagePacket authorPacket = new ChatMessagePacket(authorMessage);
+                                        authorClient.Send(authorPacket);
+
+                                        challengerMessage = "Challenge " + '\n' + "Your challenge was declined.";
+                                        ChatMessagePacket challengerPacket = new ChatMessagePacket(challengerMessage);
+                                        challengerClient.Send(challengerPacket);
+                                    }
+                                }
+                            }
+                        }
+                        break;
                     case PacketType.JOIN_GAME:
                         if (authorClient._clientID == client._clientID)
                         {
-                            if (authorClient._gameID == 0)  
+                            if (authorClient._gameID == 0 && !authorClient._spectating)  
                             {
                                 Console.WriteLine("makeGame");
                                 thisGame = NewGame(client);
@@ -611,17 +794,107 @@ namespace SimpleServer
                             }
                             else
                             {
-                                GameMessagePacket chatPacket = new GameMessagePacket("GAME " + '\n' + "You are currently in a game!");
-                                client.Send(chatPacket);
+                                if (_gameList[GetGameIndex(authorClient)].gameStarted)
+                                { 
+                                    GameMessagePacket chatPacket = new GameMessagePacket("GAME " + '\n' + "You are currently in a game!");
+                                    client.Send(chatPacket);
+                                }
+                                else
+                                {
+                                    GameMessagePacket chatPacket = new GameMessagePacket("GAME " + '\n' + "You are waiting to be placed into a game.");
+                                    client.Send(chatPacket);
+                                }
                             }
                         }
                         break;
-                    case PacketType.QUIT_GAME:
+                    case PacketType.SPECTATING:
+                        if (authorClient._clientID == client._clientID)
+                        {
+                            if (authorClient._gameID == 0 || authorClient._spectating)
+                            {
+                                if (((SpectatingPacket)packet).startSpectating)
+                                {
+                                    bool inGame = false;
+                                    string playerMessage;
+                                    string challenger = ((SpectatingPacket)packet).chosenClient;
+
+                                    for (int j = 0; j < _clientList.Count(); j++)
+                                    {
+                                        if (_clientList[j]._name == challenger)
+                                        {
+                                            if ((tempI = GetGameIndex(_clientList[j])) != -1)
+                                            {
+                                                thisGame = _gameList[tempI];
+                                                if (thisGame.GameFull())
+                                                {
+                                                    SpectatingPacket specPacket = new SpectatingPacket(true, thisGame.player1._name, thisGame.player2._name);
+                                                    authorClient.Send(specPacket);
+
+                                                    playerMessage = "Spectating" + '\n' + authorClient._name + ": is now spectating your game.";
+                                                    ChatMessagePacket playersPacket = new ChatMessagePacket(playerMessage);
+                                                    thisGame.player1.Send(playersPacket);
+                                                    thisGame.player2.Send(playersPacket);
+
+                                                    authorClient._gameID = thisGame.gameID;
+
+                                                    thisGame.spectatorList.TryAdd(thisGame.spectatorList.Count, authorClient);
+
+                                                    GameDataPacket  gameData = new GameDataPacket (thisGame.player1._myShips, thisGame.player2._myShips,
+                                                                                    thisGame.player1._destroyedShips, thisGame.player2._destroyedShips);
+                                                    authorClient.Send(gameData);
+
+                                                    authorClient._spectating = true;
+                                                    inGame = true;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                inGame = false;
+                                            }
+                                        }
+                                    }
+
+                                    if (!inGame)
+                                    {
+                                        string spectatorMessage = "SERVER: " + '\n' + "The chosen client isn't in a game.";
+                                        ChatMessagePacket specPacket = new ChatMessagePacket(spectatorMessage);
+                                        authorClient.Send(specPacket);
+                                    }
+                                }
+                                else
+                                {
+                                    int index = GetGameIndex(authorClient);
+                                    for (int j = 0; j < _gameList[index].spectatorList.Count; j++)
+                                    {
+                                        if (_gameList[index].spectatorList[j]._name == authorClient._name)
+                                        {
+                                            _gameList[index].spectatorList[j].CleanUp();
+                                            _gameList[index].spectatorList.TryRemove(j, out authorClient);
+
+                                            string spectatorMessage = "Spectating: " + '\n'
+                                                + "You have stopped spectating Game" + _gameList[index].gameID + ".";
+                                            ChatMessagePacket specPacket = new ChatMessagePacket(spectatorMessage);
+                                            authorClient.Send(specPacket);
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                returnMessage = "SERVER" + '\n' + "You are waiting to be placed into a game.";
+                                ChatMessagePacket specPacket = new ChatMessagePacket(returnMessage);
+                                authorClient.Send(specPacket);
+                            }
+                        }
+                        break;
+                    case PacketType.QUIT_ALL:
                         if(authorClient._clientID == client._clientID)
                         {
-                            bool quit = ((QuitGamePacket)packet).quitGame;
+                            bool quit = ((QuitAllPacket)packet).quitAll;
+
                             if (quit)
                             {
+                                client.Send(packet);
                                 throw new Exception("Client quit the game");
                             }
                         }
@@ -643,11 +916,11 @@ namespace SimpleServer
                 else
                 {
                     //end the game
-                    if (thisGame.player1._shipsHitCount == thisGame.player1._myShips.Count)
+                    if (thisGame.player1._destroyedShips.Count == thisGame.player1._myShips.Count)
                     {
                         EndGameMessage(thisGame, thisGame.player2, thisGame.player1);
                     }
-                    else if (thisGame.player2._shipsHitCount == thisGame.player2._myShips.Count)
+                    else if (thisGame.player2._destroyedShips.Count == thisGame.player2._myShips.Count)
                     {
                         EndGameMessage(thisGame, thisGame.player1, thisGame.player2);
                     }
@@ -672,22 +945,26 @@ namespace SimpleServer
                         + "2. type '//GetClients' to recieve list of clients in chat." + '\n'
                         + "3. type 'recipientName:your message' to send a message directly to a client (BE CAREFUL OF CAPS)." + '\n'
                         + "4. type '!!your message' to send a message using UDP." + '\n'
-                        + "5. type '#your message' to send a message directly to your opponent in your current game" + '\n'
-                        + "6. type '//Joke' to recieve a joke.";
+                        + "5. type '#your message' to send a message directly to your opponent in your current game." + '\n'
+                        + "6. type 'recipientName*yourmessage' to send another client a game challenge." + '\n'
+                        + "7. type '&clientname' to start spectating the game that client is currently in." + '\n'
+                        + "8. type '&leave' to stop spectating the current game you are watching."
+                        + "9. type '//Joke' to recieve a joke." + '\n'
+                        + "10. type '//help' to recieve this message again.";
                     return returnMessage;
                 case "end":
                     returnMessage = "Bye";
                     return returnMessage;
                 case "getclients":
-                    foreach(Client client in _clientList)
+                    for(int i = 0; i < _clientList.Count; i++)
                     {
-                        if (client._name == null)
+                        if (_clientList[i]._name == null)
                         {
                             returnMessage += "Anonymous" + '\n';
                         }
                         else
                         {
-                            returnMessage += client._name + '\n';
+                            returnMessage += _clientList[i]._name + '\n';
                         }
                     }
                     returnMessage += "Total: " + _clientList.Count();
@@ -706,8 +983,7 @@ namespace SimpleServer
 
         private int GetGameIndex(Client authorClient)
         {
-            //problem here
-            for(int i = 0; i< _gameList.Count; i++)
+            for (int i = 0; i< _gameList.Count; i++)
             {
                 if(_gameList[i].gameID == authorClient._gameID)
                 {
@@ -733,6 +1009,7 @@ namespace SimpleServer
                     client._playerNum = 1;
                     client._myTurn = true;
                     _nextGame.player1 = client;
+                    _nextGame.spectatorList = new ConcurrentDictionary<int, Client>();
                 }
                 else if (_nextGame.player2 == null)
                 {
@@ -748,7 +1025,6 @@ namespace SimpleServer
                 if (_nextGame.GameFull())
                 {
                     _gameList.TryAdd(_gameList.Count, temp);
-                    //_gameList.Add(temp);
                     _nextGame.Init();
                     _nextGameID++;
                 }
@@ -757,15 +1033,43 @@ namespace SimpleServer
             }
         }
 
+        private Game NewGame(Client player1, Client player2)
+        {
+            Game temp = new Game();
+            temp.gameID = _nextGameID;
+
+            //player1 vars
+            player1._gameID = _nextGameID;
+            player1._playerNum = 1;
+            player1._myTurn = true;
+            temp.player1 = player1;
+            
+            //player2 vars
+            player2._gameID = _nextGameID;
+            player2._playerNum = 2;
+            player2._myTurn = false;
+            temp.player2 = player2;
+
+            temp.spectatorList = new ConcurrentDictionary<int, Client>();
+            temp.gameStarted = true;
+
+            _gameList.TryAdd(_gameList.Count, temp);
+            _nextGameID++;
+
+            return temp;
+        }
+
         private void EndGameMessage(Game game, Client winner, Client loser)
         {
+            EndGamePacket endGame = new EndGamePacket(true);
+
             string winnerMessage = "Game " + game.gameID.ToString() + '\n'
                 + "You defeated " + loser._name + "!" + '\n' + '\n'
-                + "You can now join a new game!";
+                + "You can now join a new game or spectate anothers game!";
 
             string loserMessage = "Game " + game.gameID.ToString() + '\n'
                 + "You have been defeated by " + winner._name + "!" + '\n' + '\n'
-                + "You can now join a new game!";
+                + "You can now join a new game or spectate anothers game!";
 
             GameMessagePacket gamePacket = new GameMessagePacket(winnerMessage);
             winner.Send(gamePacket);
@@ -773,7 +1077,20 @@ namespace SimpleServer
             gamePacket.message = loserMessage;
             loser.Send(gamePacket);
 
-            EndGamePacket endGame = new EndGamePacket(true);
+            if(!game.spectatorList.IsEmpty)
+            {
+                string specMessage = "Game " + game.gameID.ToString() + '\n'
+                    + winner._name + " has defeated " + loser._name + '\n'
+                    + "You can now join a new game or spectate anothers game!";
+                gamePacket.message = specMessage;
+
+                for(int i = 0; i < game.spectatorList.Count; i++)
+                {
+                    game.spectatorList[i].Send(gamePacket);
+                    game.spectatorList[i].Send(endGame);
+                }
+            }
+
             winner.Send(endGame);
             loser.Send(endGame);
         }

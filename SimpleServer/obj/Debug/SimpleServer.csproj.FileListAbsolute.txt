@@ -45,3 +45,23 @@ C:\Users\m018585h\Downloads\SimpleServer_BattleShips\SimpleServer\obj\Debug\Simp
 C:\Users\m018585h\Downloads\SimpleServer_BattleShips\SimpleServer\obj\Debug\SimpleServer.csproj.CopyComplete
 C:\Users\m018585h\Downloads\SimpleServer_BattleShips\SimpleServer\obj\Debug\SimpleServer.exe
 C:\Users\m018585h\Downloads\SimpleServer_BattleShips\SimpleServer\obj\Debug\SimpleServer.pdb
+G:\Uni\CNA\Battleships\SimpleServer\bin\Debug\SimpleServer.exe.config
+G:\Uni\CNA\Battleships\SimpleServer\bin\Debug\SimpleServer.exe
+G:\Uni\CNA\Battleships\SimpleServer\bin\Debug\SimpleServer.pdb
+G:\Uni\CNA\Battleships\SimpleServer\bin\Debug\Packet.dll
+G:\Uni\CNA\Battleships\SimpleServer\bin\Debug\Packet.pdb
+G:\Uni\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.csprojAssemblyReference.cache
+G:\Uni\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.csproj.CoreCompileInputs.cache
+G:\Uni\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.csproj.CopyComplete
+G:\Uni\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.exe
+G:\Uni\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.pdb
+D:\Visual Studio\CNA\Battleships\SimpleServer\bin\Debug\SimpleServer.exe.config
+D:\Visual Studio\CNA\Battleships\SimpleServer\bin\Debug\SimpleServer.exe
+D:\Visual Studio\CNA\Battleships\SimpleServer\bin\Debug\SimpleServer.pdb
+D:\Visual Studio\CNA\Battleships\SimpleServer\bin\Debug\Packet.dll
+D:\Visual Studio\CNA\Battleships\SimpleServer\bin\Debug\Packet.pdb
+D:\Visual Studio\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.csprojAssemblyReference.cache
+D:\Visual Studio\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.csproj.CoreCompileInputs.cache
+D:\Visual Studio\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.csproj.CopyComplete
+D:\Visual Studio\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.exe
+D:\Visual Studio\CNA\Battleships\SimpleServer\obj\Debug\SimpleServer.pdb
